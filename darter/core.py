@@ -10,11 +10,13 @@ from .data.type_data import make_type_data
 from .data.base_objects import make_base_objects
 
 
+# It's always a good idea to try with disableRoData=True first, and if that succeeds, then enable
+
 # FIXME: is product a flag, or a compile flag?
 # FIXME: return header, verify that kind, version and features is the same for both snapshots
 # FIXME: check that Bytecode and KernelProgramInfo do not appear if precompiled
 
-def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
+def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None, disableRoData=False):
     app.seek(BASE_ADDRESS)
 
     magic_value, length, kind = unpack('<Iqq', app.read(4+8+8))
@@ -98,18 +100,21 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
         for _ in range(readuint(f)): allocRef(cluster, { 'length': readuint(f) })
 
     def RODataAlloc(elem=lambda f: {}):
+        def parseElemAt(offset):
+            saved = f.tell()
+            try:
+                f.seek(data_start + running_offset)
+                return elem(f)
+            finally:
+                f.seek(saved)
+        if disableRoData: parseElemAt = lambda offset: { 'offset': offset }
         def alloc(f, cluster):
             for _ in range(readuint(f)):
-                allocRef(cluster, { 'offset': readuint(f) }, 'refs_shared')
+                allocRef(cluster, { 'offset': readuint(f) }, 'refs_shared') # FIXME implement
             running_offset = 0
             for _ in range(readuint(f)):
                 running_offset += readuint(f) << kObjectAlignmentLog2
-                saved = f.tell()
-                try:
-                    f.seek(data_start + running_offset)
-                    allocRef(cluster, elem(f), 'refs_object')
-                finally:
-                    f.seek(saved)
+                allocRef(cluster, parseElemAt(running_offset), 'refs_object')
         return alloc
 
     class AllocParsers:
@@ -497,6 +502,8 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
             raise Exception('Not implemented')
         else:
             offset += INSTR_ADDRESS
+        if disableRoData:
+            return { 'offset': offset }
         saved = f.tell()
         try:
             f.seek(offset)
