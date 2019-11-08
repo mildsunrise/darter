@@ -69,3 +69,8 @@ kCachedDescriptorCount = 32
 # runtime/vm/object.h
 kCachedICDataArrayCount = 4
 
+
+### AppJIT blob wrapping
+
+kAppJITMagic = 0xf6f6dcdc
+kAppSnapshotPageSize = 4 * 1024
