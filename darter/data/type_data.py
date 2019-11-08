@@ -144,7 +144,7 @@ def make_type_data():
         ],
         'Code': [
             ['ObjectPool', 'object_pool', 'Accessed from generated code.'],
-            ['Instructions', 'instructions', 'Accessed from generated code.'],
+            # parsed differently: ['Instructions', 'instructions', 'Accessed from generated code.'],
             ['Object', 'owner', 'Function, Null, or a Class.'],
             ['ExceptionHandlers', 'exception_handlers', None],
             ['PcDescriptors', 'pc_descriptors', None],
@@ -152,7 +152,7 @@ def make_type_data():
             ['Array', 'stackmaps', None],
             ['Array', 'inlined_id_to_function', None],
             ['CodeSourceMap', 'code_source_map', None],
-            *not_in_precompiled(['Instructions', 'active_instructions', None]),
+            # parsed differently: *not_in_precompiled(['Instructions', 'active_instructions', None]),
             *not_in_precompiled(['Array', 'deopt_info_array', None]),
             *not_in_precompiled(['Array', 'static_calls_target_table', '\n (code-offset, function, code) triples.']),
             *not_in_product(['Object', 'return_address_metadata', '\n If return_address_metadata_ is a Smi, it is the offset to the prologue.\n Else, return_address_metadata_ is null.']),

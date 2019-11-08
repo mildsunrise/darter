@@ -28,6 +28,8 @@ kTypedDataCidRemainderInternal = 0
 kTypedDataCidRemainderView = 1
 kTypedDataCidRemainderExternal = 2
 
+kDataSerializationAlignment = 8
+
 kEntryType = [ 'kTaggedObject', 'kImmediate', 'kNativeFunction', 'kNativeFunctionWrapper', 'kNativeEntryData' ]
 kkEntryType = { k: v for (v, k) in enumerate(kEntryType) }
 decodeObjectEntryTypeBits = lambda x: { "patchable": not (x >> 7), "entry_type": x & 0x7F }

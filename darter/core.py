@@ -12,6 +12,7 @@ from .data.base_objects import make_base_objects
 
 # FIXME: is product a flag, or a compile flag?
 # FIXME: return header, verify that kind, version and features is the same for both snapshots
+# FIXME: check that Bytecode and KernelProgramInfo do not appear if precompiled
 
 def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
     app.seek(BASE_ADDRESS)
@@ -83,8 +84,9 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
         refs[r].src.append(source)
         return refs[r]
 
-    def storeref(f, x, name, ref):
-        x[name] = readref(f, (ref, name))
+    def storeref(f, x, name, src):
+        if not (type(src) is tuple): src = (src,)
+        x[name] = readref(f, src + (name,))
 
 
     # CLUSTER DESERIALIZATION LOGIC
@@ -157,6 +159,13 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
         kGrowableObjectArrayCid = simpleAlloc
         kStackTraceCid = simpleAlloc
         kArrayCid = lengthAlloc
+        kNamespaceCid = simpleAlloc
+        kKernelProgramInfoCid = simpleAlloc
+        kContextScopeCid = lengthAlloc
+        kICDataCid = simpleAlloc
+        kLibraryPrefixCid = simpleAlloc
+        kRegExpCid = simpleAlloc
+        kWeakPropertyCid = simpleAlloc
         
         kTypedDataViewCid = simpleAlloc
         kExternalTypedDataCid = simpleAlloc
@@ -225,6 +234,42 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
         def kPcDescriptorsCid(f, x, ref): pass
         def kStackMapCid(f, x, ref): pass
         def kCodeSourceMapCid(f, x, ref): pass
+        def kNamespaceCid(f, x, ref): pass
+
+        def kKernelProgramInfoCid(f, x, ref):
+            x['kernel_binary_version'] = readuint(f, 32)
+
+        def kContextScopeCid(f, x, ref):
+            length = readuint(f)
+            x['implicit'] = read1(f)
+            def read_variable_desc(src):
+                x = {}
+                x['declaration_token_pos'] = readuint(f)
+                x['token_pos'] = readuint(f)
+                storeref(f, x, 'name', src)
+                storeref(f, x, 'is_final', src)
+                storeref(f, x, 'is_const', src)
+                storeref(f, x, 'value_or_type', src)
+                x['context_index'] = readuint(f)
+                x['context_level'] = readuint(f)
+                return x
+            x['variables'] = [ read_variable_desc((ref, 'variables', i)) for i in range(length) ]
+
+        def kICDataCid(f, x, ref):
+            if not PRECOMPILED_RUNTIME:
+                x['deopt_id'] = readint(f, 32)
+            x['state_bits'] = readint(f, 32)
+
+        def kLibraryPrefixCid(f, x, ref):
+            x['num_imports'] = readuint(f, 16)
+            x['deferred_load'] = read1(f)
+
+        def kRegExpCid(f, x, ref):
+            x['num_one_byte_registers'] = readint(f, 32)
+            x['num_two_byte_registers'] = readint(f, 32)
+            x['type_flags'] = readint(f, 8)
+
+        def kWeakPropertyCid(f, x, ref): pass
         
         def kClassCid(f, x, ref):
             x['cid'] = readcid(f)
@@ -380,11 +425,14 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
             storeref(f, x, 'type_arguments', ref)
             x['items'] = [ readref(f, (ref, 'items', n)) for n in range(count) ]
         
-        def kTypedDataCid(f, x, ref):
+        def _typedData(f, x, ref, external):
             count = readuint(f)
-            x['canonical'] = read1(f)
+            if external:
+                while f.tell() % kDataSerializationAlignment != 0: f.read(1)
+            else:
+                x['canonical'] = read1(f)
             cid = kClassId[ref.cluster['cid']]
-            type_name = re.fullmatch('kTypedData(.+)ArrayCid', cid).group(1)
+            type_name = re.fullmatch('k' + ('External' if external else '') + 'TypedData(.+)ArrayCid', cid).group(1)
             element_size, parse_char = {
                 'Int8': (1, 'b'),
                 'Uint8': (1, 'B'),
@@ -397,6 +445,8 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
             }[type_name]
             parse_func = lambda: unpack('<' + parse_char, f.read(element_size))[0]
             x['items'] = [ parse_func() for _ in range(count) ]
+        kTypedDataCid = lambda f, x, ref: FillParsers._typedData(f, x, ref, False)
+        kExternalTypedDataCid = lambda f, x, ref: FillParsers._typedData(f, x, ref, True)
 
 
     FIELDS, MAPPINGS = make_type_data()
@@ -407,7 +457,7 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
 
     def read_from_to(f, x, ref):
         handler = ref.cluster['handler']
-        if handler in {'kObjectPoolCid', 'ROData', 'kExceptionHandlersCid', 'kInstanceCid', 'kTypeArgumentsCid', 'kMintCid', 'kDoubleCid', 'kArrayCid', 'kTypedDataCid', 'kOneByteStringCid', 'kTwoByteStringCid', 'kPcDescriptorsCid', 'kCodeSourceMapCid', 'kStackMapCid'}: return
+        if handler in {'kObjectPoolCid', 'ROData', 'kExceptionHandlersCid', 'kInstanceCid', 'kTypeArgumentsCid', 'kMintCid', 'kDoubleCid', 'kArrayCid', 'kTypedDataCid', 'kExternalTypedDataCid', 'kOneByteStringCid', 'kTwoByteStringCid', 'kPcDescriptorsCid', 'kCodeSourceMapCid', 'kStackMapCid', 'kContextScopeCid'}: return
         kname = re.fullmatch('k(.+)Cid', handler).group(1)
         fields, mapping = FIELDS[kname], MAPPINGS.get(kname)
         if not (mapping is None or type(mapping) is bool):
@@ -421,12 +471,10 @@ def parse_snapshot(app, BASE_ADDRESS, INSTR_ADDRESS, vm=False, base=None):
             fields = remove_fields(fields, {'context_scope'})
         if kname == 'Code':
             x['instructions'] = read_instructions(f)
-            if not PRECOMPILED_RUNTIME and kind == kkKind['kAppJIT']:
-                x['active_instructions'] = read_instructions(f)
-            removed = {'instructions'}
-            if not PRECOMPILED_RUNTIME and kind != kind['kAppJit']:
-                removed |= {'active_instructions', 'deopt_info_array', 'static_calls_target_table'}
-            fields = remove_fields(fields, removed)
+            if not PRECOMPILED_RUNTIME and kind == kkKind['kFullJIT']:
+                    x['active_instructions'] = read_instructions(f)
+            if not PRECOMPILED_RUNTIME and kind != kkKind['kFullJIT']:
+                fields = remove_fields(fields, {'deopt_info_array', 'static_calls_target_table'})
 
         for t, name, c in fields:
             storeref(f, x, name, ref)
