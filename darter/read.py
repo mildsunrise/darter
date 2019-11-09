@@ -2,8 +2,6 @@
 
 from struct import unpack, pack
 
-from .settings import PTRBITS, DEBUG
-
 
 def readcstr(f):
     buf = bytes()
@@ -14,7 +12,7 @@ def readcstr(f):
             return bytes(buf)
         buf += b
 
-def readuint(f, bits=PTRBITS, signed=False):
+def readuint(f, bits=64, signed=False):
     if bits == 8: return unpack('b' if signed else 'B', f.read(1))[0]
     x = 0; s = 0
     while True:
@@ -29,7 +27,7 @@ def readuint(f, bits=PTRBITS, signed=False):
         print('--> Int {} longer than {} bits'.format(x, bits))
     return x
 
-def readint(f, bits=PTRBITS):
+def readint(f, bits=64):
     return readuint(f, bits, signed=True)
 
 readcid = lambda f: readint(f, 32)

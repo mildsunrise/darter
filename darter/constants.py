@@ -3,8 +3,6 @@
 import json
 import os.path
 
-from .settings import PTRBITS
-
 
 EXPECTED_VERSION = 'c8562f0ee0ebc38ba217c7955956d1cb'
 
@@ -12,8 +10,6 @@ MAGIC_VALUE = 0xdcdcf5f5
 
 kSectionMarker = 0xABAB
 
-kObjectAlignment = 2 * PTRBITS//8
-kObjectAlignmentLog2 = kObjectAlignment.bit_length()-1
 kMaxPreferredCodeAlignment = 32
 
 with open(os.path.join(os.path.dirname(__file__), 'data', 'classIds.json')) as f:
@@ -74,3 +70,12 @@ kCachedICDataArrayCount = 4
 
 kAppJITMagic = 0xf6f6dcdc
 kAppSnapshotPageSize = 4 * 1024
+
+### AppAOT blob wrapping
+
+kAppAOTSymbols = [
+    '_kDartVmSnapshotData',
+    '_kDartVmSnapshotInstructions',
+    '_kDartIsolateSnapshotData',
+    '_kDartIsolateSnapshotInstructions'
+]

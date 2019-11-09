@@ -1,8 +1,21 @@
 # darter: Dart snapshot parser
 
 `darter` is a Python module that can fully parse the data inside a Dart snapshot
-(i.e. the `libapp.so` file in a release Flutter app). Examples of what you can
-do with the parsed info:
+(i.e. the `libapp.so` file in a release Flutter app).
+
+Features:
+
+ - Parses 100% of the snapshot data, including memory structures.
+ - Supports many architectures and the three snapshot types (old, AppJIT and AppAOT).
+ - Tested on AppAOT ARM Product snapshots, and AppJIT x64 Release snapshots.
+ - Usually zero-config: autodetects flags & settings from the snapshot.
+ - Extracts the blobs from `app.so` or `.snapshot` files automatically.
+ - Stores back-references, so you can travel the graph easily.
+ - Debugging output & strict mode controls.
+ - Comes with some examples of native instruction inspection.
+ - Auxiliary parsing for code source maps and other structures.
+
+Examples of what you can do with the parsed info:
 
  - Extract string table of an application
  - Print function / class / file list
@@ -38,46 +51,37 @@ for AOT snapshots, because we get no high-level bytecode.
 
 ## Limitations
 
-- Even though the code handles the other kinds of snapshots, it has only been tested
-  with **AppAOT** snapshots compiled for **ARM** on **release mode** and probably still
-  needs some modifications in order to work with i.e. AppJIT snapshots.
-
-- The code is also missing a few tweaks before it can work on snapshots compiled for
-  64-bit architectures (calls to `unpack`).
+- The parser is still at an early stage and will not work in every case.
+  It has only been tested on AppAOT ARM Product snapshots, and AppJIT x64 Release
+  snapshots. It still doesn't support all architectures that Dart runs on (without
+  some modifications, at least).
 
 - This parser was written based on dart-sdk at `1ef83b86ae`.
+
   The snapshot format is internal to the VM. It dumps some of the objects as they appear
   in memory; you need to know how the VM (arch, compile flags) was compiled in order
   to parse it. It can change frequently between versions, as there's not a standard spec
   (AFAIK) for the format.
 
-- The code quality is far from perfect.
+- Keep in mind that this is for parsing binary (i.e. architecture-dependent) snapshots.
+  `.dill` files and some `.snapshot` files contain [Kernel AST](https://github.com/dart-lang/sdk/tree/master/pkg/kernel), which
+  is completely different and currently not supported by `darter`.
+  [[Learn more]](https://github.com/dart-lang/sdk/wiki/Snapshots#kernel-snapshots)
 
 Any help or donations are welcome.
 
 
 ## How to use
 
-### Initialize settings
-
-First, you need to initialize the settings. Copy `darter/settings.sample.py`
-as `darter/settings.py` sample and edit the settings to match your architecture
-and flags. Those need to be correct for parsing to succeed.
-
-### Dependencies
-
-`darter` has no dependencies, but the notebook uses [Radare2](https://www.radare.org)
-to inspect the binary and extract the appropriate data for parsing, as well as for
-disassembly analysis.
-
- - [Install Radare2](https://www.radare.org/n/radare2.html)
- - Install the `r2pipe` module: `pip3 install r2pipe`
-
-### Open notebook
-
 `darter` in itself is just a module, it has no stand-alone program or CLI.  
 One way to use it is through the included **Playground.ipynb** notebook.
-[Install Jupyter](https://jupyter.org/install) and open the notebook to start
+
+First, [install Radare2](https://www.radare.org/n/radare2.html) (it is only
+required for the `file` module (parsing ELF snapshots) and the native ref finder).
+
+Then install `r2pipe`: `pip3 install r2pipe`
+
+Finally [install Jupyter](https://jupyter.org/install) and open the notebook to start
 playing.
 
 

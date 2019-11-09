@@ -1,8 +1,6 @@
-from ..settings import *
-
-def make_type_data():
-    not_in_precompiled = lambda x: [] if PRECOMPILED_RUNTIME else [x]
-    not_in_product = lambda x: [] if PRODUCT else [x]
+def make_type_data(is_precompiled, is_product):
+    not_in_precompiled = lambda x: [] if is_precompiled else [x]
+    not_in_product = lambda x: [] if is_product else [x]
 
     FIELDS = {
         # The root type (not raw object -- defined in separate header)
@@ -173,10 +171,6 @@ def make_type_data():
             ['Array', 'args_descriptor', 'Arguments descriptor.'],
             *not_in_precompiled(['AbstractType', 'receivers_static_type', 'Static type of the receiver, if instance call and available.']),
             ['Object', 'owner', 'Parent/calling function or original IC of cloned IC.'],
-        ],
-        'String': [
-            ['Smi', 'length', None],
-            *(['Smi', 'hash', None] if not HASH_IN_OBJECT_HEADER else []),
         ],
         'TypedDataView': [
             ['Smi', 'length', None],
