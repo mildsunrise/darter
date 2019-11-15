@@ -28,7 +28,9 @@ def parse_features(features):
     return result
 
 format_cid = lambda cid: \
-    kClassId[cid] if type(cid) is int and 0 <= cid < kNumPredefinedCids else repr(cid)
+    re.fullmatch('k(.+)Cid', kClassId[cid]).group(1) if type(cid) is int and 0 <= cid < kNumPredefinedCids else repr(cid)
+
+unob_string = lambda str: str.x['unob'] if 'unob' in str.x else str.x['value']
 
 # FIXME: throw parseerror if:
 # if instructions / rodata is needed and not present,
@@ -37,26 +39,30 @@ format_cid = lambda cid: \
 # if read methods fail
 
 class Ref:
-    def __init__(self, ref, cluster, x, prop):
+    def __init__(self, s, ref, cluster, x, prop):
         self.ref = ref
         self.x = x
         self.cluster = cluster
         self.prop = prop
         self.src = []
+        self.s = s
     def is_base(self):
-        return type(self.ref) is int and self.ref < num_base_objects+1
+        return type(self.ref) is int and self.ref < self.s.num_base_objects+1
     def is_own(self):
-        return type(self.ref) is int and self.ref >= num_base_objects+1
+        return type(self.ref) is int and self.ref >= self.s.num_base_objects+1
     def __str__(self):
         if self.cluster['cid'] == 'BaseObject':
             return '<base {}>{}'.format(self.x['type'], self.x['value'])
         cid = self.cluster['cid']
         x = self.x
-        content = re.fullmatch('k(.+)Cid', kClassId[cid]).group(1) if type(cid) is int and 0 <= cid < len(kClassId) else cid
+        fields = ['url' if 'url' in x else 'name']
+        fields = [(f, unob_string(x[f])) for f in fields if f in x]
+        content = format_cid(cid) + ''.join(' {}={}'.format(f, repr(v)) for f, v in fields if v)
         if cid in {kkClassId['kOneByteStringCid'], kkClassId['kTwoByteStringCid']}:
             content = repr(x['value'])
-        if cid in {kkClassId['kArrayCid']}:
-            content = 'Array[{}]'.format(len(x['items'])) #repr(x['items'])
+            if 'unob' in x: content += '({})'.format(repr(x['unob']))
+        if cid in {kkClassId['kArrayCid'], kkClassId['kImmutableArrayCid']}:
+            content += '[{}]'.format(len(x['value'])) #repr(x['value'])
         return '{base}{1}->{0}'.format(self.ref, content, base="<base>" if self.is_base() else "")
     def __repr__(self):
         return self.__str__()
@@ -77,7 +83,7 @@ class Snapshot:
 
     def __init__(self, data, instructions=None, vm=False, base=None,
         data_offset=0, instructions_offset=0, print_level=3,
-        strict=True, parse_rodata=True):
+        strict=True, parse_rodata=True, build_tables=True):
         """ Initialize a parser.
         
         Main arguments
@@ -101,6 +107,8 @@ class Snapshot:
                 - instructions / active_instructions field of Code objects, if present
             
             To be empty except for an `offset` field pointing where they are located.
+        build_tables -- Calls build_tables() at the end of the parsing, which populates some convenience data
+            about the snapshot. Disable this if it fails for some reason.
 
         Reporting parameters
         --------------------
@@ -120,6 +128,7 @@ class Snapshot:
         self.show_debug = print_level >= 4
         self.strict = strict
         self.parse_rodata = parse_rodata
+        self.do_build_tables = build_tables
     
     def parse(self):
         ''' Parse the snapshot. '''
@@ -138,7 +147,7 @@ class Snapshot:
             self.read_fill_cluster(cluster)
 
         self.info('Reading roots...')
-        root = self.refs['root'] = Ref('root', {'handler': 'ObjectStore', 'cid': 'ObjectStore'}, {}, 'refs')
+        root = self.refs['root'] = Ref(self, 'root', {'handler': 'ObjectStore', 'cid': 'ObjectStore'}, {}, 'refs')
         if self.vm:
             self.storeref(self.data, root.x, 'symbol_table', root)
             if self.includes_code:
@@ -150,6 +159,9 @@ class Snapshot:
         self.info('Snasphot parsed.')
         if self.data.tell() != self.length + 4:
             self.warning('Snapshot should end at 0x{:x} but we are at 0x{:x}'.format(self.length + 4, self.data.tell()))
+
+        if self.do_build_tables:
+            self.build_tables()
         return self
 
     
@@ -286,7 +298,7 @@ class Snapshot:
         base_objects = min(base_objects, exp_base_objects)
         # fill base objects
         for r in range(1, 1 + base_objects):
-            self.refs[r] = Ref(base[r].ref, base[r].cluster, base[r].x, base[r].prop)
+            self.refs[r] = Ref(self, base[r].ref, base[r].cluster, base[r].x, base[r].prop)
         self.refs['next'] = 1 + base_objects
         # fill any missing refs
         tmp_cluster = { 'handler': 'UnknownBase', 'cid': 'unknown' }
@@ -297,7 +309,7 @@ class Snapshot:
             cluster[prop] = []
         idx = len(cluster[prop])
         cluster[prop].append(x)
-        self.refs[self.refs['next']] = Ref(self.refs['next'], cluster, x, prop)
+        self.refs[self.refs['next']] = Ref(self, self.refs['next'], cluster, x, prop)
         self.refs['next'] += 1
 
     def readref(self, f, source):
@@ -399,3 +411,40 @@ class Snapshot:
         section_marker = readint(self.data, 32)
         if section_marker != kSectionMarker:
             raise ParseError(self.data_offset + offset, 'Section marker doesn\'t match')
+
+   # CONVENIENCE API #
+
+    getrefs = lambda self, name: self.clrefs.get(name, [])
+
+    def build_tables(self):
+        self.cl = {}
+        self.clrefs = {}
+        for c in self.clusters:
+            if c['cid'] in self.cl:
+                self.notice('Cluster {} is duplicated'.format(format_cid(c['cid'])))
+            self.cl[c['cid']] = c
+            n = format_cid(c['cid'])
+            if n not in self.clrefs: self.clrefs[n] = []
+            self.clrefs[n] += [ self.refs[x] for x in range(c['ref_start'], c['ref_end']) ]
+
+        self.strings_refs = self.getrefs('OneByteString') + self.getrefs('TwoByteString')
+        self.strings = { ref.x['value']: ref for ref in self.strings_refs }
+        if len(self.strings) != len(self.strings_refs):
+            self.notice('There are {} duplicate strings.'.format(len(self.strings_refs) - len(self.strings)))
+
+        self.scripts_lib = {}
+        for l in self.getrefs('Library'):
+            for r in l.x['owned_scripts'].x['data'].x['value']:
+                if r.ref == 1: continue
+                if r.ref in self.scripts_lib:
+                    self.notice('Script {} owned by multiple libraries, this should not happen'.format(l))
+                self.scripts_lib[r.ref] = l
+
+        # Consistency checks
+        if len(self.scripts_lib) != len(self.getrefs('Script')):
+            self.notice('There are {} scripts but only {} are associated to a library'.format(len(self.getrefs('Script')), len(self.scripts_lib)))
+        for c in self.getrefs('Class'):
+            if c.x['library'] != self.scripts_lib[c.x['script'].ref]:
+                self.notice('Class {} does not have matching script / library'.format(c))
+
+        # TODO: function table, class table

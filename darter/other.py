@@ -5,7 +5,7 @@ import io
 from .read import readint, read_uleb128
 
 
-def parsePcDescriptors(data):
+def parse_pc_descriptors(data):
     f = io.BytesIO(data)
     def elem():
         x = {}
@@ -21,10 +21,11 @@ def parsePcDescriptors(data):
     while f.tell() < len(data): els.append(elem())
     return els
 
+# runtime/vm/dwarf.cc and runtime/vm/code_descriptors.cc
 kCodeSourceMapOpCodes = ['kChangePosition', 'kAdvancePC', 'kPushFunction', 'kPopFunction', 'kNullCheck']
 kkCodeSourceMapOpCodes = {k: v for v, k in enumerate(kCodeSourceMapOpCodes)}
 
-def parseCodeSourceMap(data):
+def parse_code_source_map(data):
     f = io.BytesIO(data)
     ops = []
     while f.tell() < len(data):
