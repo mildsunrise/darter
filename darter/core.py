@@ -306,9 +306,10 @@ class Snapshot:
     def allocref(self, cluster, x):
         if 'refs' not in cluster:
             cluster['refs'] = []
-        cluster['refs'].append(x)
-        self.refs[self.refs['next']] = Ref(self, self.refs['next'], cluster, x)
+        ref = Ref(self, self.refs['next'], cluster, x)
+        self.refs[ref.ref] = ref
         self.refs['next'] += 1
+        cluster['refs'].append(ref)
 
     def readref(self, f, source):
         r = readuint(f)
@@ -357,7 +358,7 @@ class Snapshot:
         cid, name = cluster['cid'], cluster['handler']
         self.debug('reading cluster with cid={}'.format(format_cid))
         handler = getattr(self.handlers, name)(cid)
-        if refs is None: refs = [ self.refs[x] for x in range(cluster['ref_start'], cluster['ref_end']) ]
+        if refs is None: refs = cluster['refs']
         for ref in refs:
             if self.show_debug: self.debug('  reading ref {}'.format(ref.ref))
             assert ref.cluster == cluster
@@ -423,7 +424,7 @@ class Snapshot:
             self.cl[c['cid']] = c
             n = format_cid(c['cid'])
             if n not in self.clrefs: self.clrefs[n] = []
-            self.clrefs[n] += [ self.refs[x] for x in range(c['ref_start'], c['ref_end']) ]
+            self.clrefs[n] += c['refs']
 
         self.strings_refs = self.getrefs('OneByteString') + self.getrefs('TwoByteString')
         self.strings = { ref.x['value']: ref for ref in self.strings_refs }
