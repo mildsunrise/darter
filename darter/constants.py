@@ -16,6 +16,7 @@ kMaxPreferredCodeAlignment = 32
 with open(os.path.join(os.path.dirname(__file__), 'data', 'classIds.json')) as f:
     kClassId = json.load(f)
 kkClassId = { k: v for (v, k) in enumerate(kClassId) }
+assert len(kClassId) == len(kkClassId)
 # kNumPredefinedCids is not included in kClassIds
 kNumPredefinedCids = len(kClassId)
 kTypedDataInt8ArrayCid = kkClassId['TypedDataInt8Array']
