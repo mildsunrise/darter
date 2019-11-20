@@ -82,7 +82,7 @@ class Snapshot:
 
     def __init__(self, data, instructions=None, vm=False, base=None,
         data_offset=0, instructions_offset=0, print_level=3,
-        strict=True, parse_rodata=True, build_tables=True):
+        strict=True, parse_rodata=True, parse_csm=True, build_tables=True):
         """ Initialize a parser.
         
         Main arguments
@@ -106,6 +106,9 @@ class Snapshot:
                 - instructions / active_instructions field of Code objects, if present
             
             To be empty except for an `offset` field pointing where they are located.
+        parse_csm -- Enables / disabling parsing code source maps using parse_code_source_map().
+            If disabled, code source maps will contain a 'data' field with the encoded bytecode, instead of 'ops'.
+            This option has no effect if parse_rodata is False.
         build_tables -- Calls build_tables() at the end of the parsing, which populates some convenience data
             about the snapshot. Disable this if it fails for some reason.
 
@@ -127,6 +130,7 @@ class Snapshot:
         self.show_debug = print_level >= 4
         self.strict = strict
         self.parse_rodata = parse_rodata
+        self.parse_csm = parse_csm
         self.do_build_tables = build_tables
     
     def parse(self):

@@ -5,11 +5,13 @@ import re
 
 from .read import *
 from .constants import *
+from .other import parse_code_source_map
 
 def make_cluster_handlers(s):
     # Unpack any properties from Snapshot here, to make the dependencies clear
 
     parse_rodata = s.parse_rodata
+    parse_csm = s.parse_csm
     rodata = s.rodata
     rodata_offset = s.rodata_offset
 
@@ -389,7 +391,10 @@ def make_cluster_handlers(s):
                     tags, _, length = unpack('<LLQ', f.read(16))
                 else:
                     tags, length = unpack('<LL', f.read(8))
-                return { 'tags': tags, 'data': f.read(length) }
+                data = f.read(length)
+                if not parse_csm:
+                    return { 'tags': tags, 'data': data }
+                return { 'tags': tags, 'ops': parse_code_source_map(data) }
 
         class StackMap(RODataHandler):
             def parse_object(self, f):
