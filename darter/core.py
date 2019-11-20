@@ -49,20 +49,50 @@ class Ref:
         return type(self.ref) is int and self.ref < self.s.num_base_objects+1
     def is_own(self):
         return type(self.ref) is int and self.ref >= self.s.num_base_objects+1
+    def is_cid(self, *names):
+        return any(self.cluster['cid'] == kkClassId[name] for name in names)
+    is_array = lambda self: self.is_cid('Array', 'ImmutableArray')
+    is_string = lambda self: self.is_cid('OneByteString', 'TwoByteString')
+    is_instance = lambda self: self.is_cid('Instance') or self.cluster['cid'] >= kNumPredefinedCids
+    is_baseobject = lambda self: self.cluster['cid'] == 'BaseObject'
+    is_null = lambda self: self.ref == 1
     def __str__(self):
-        if self.cluster['cid'] == 'BaseObject':
-            return '<base {}>{}'.format(self.x['type'], self.x['value'])
-        cid = self.cluster['cid']
         x = self.x
-        fields = ['url' if 'url' in x else 'name']
-        fields = [(f, unob_string(x[f])) for f in fields if f in x]
-        content = format_cid(cid) + ''.join(' {}={}'.format(f, repr(v)) for f, v in fields if v)
-        if cid in {kkClassId['OneByteString'], kkClassId['TwoByteString']}:
+        if self.is_baseobject():
+            return '<base{}>{}'.format('' if x.ref in {1} else (' ' + x['type']), x['value'])
+        content = format_cid(self.cluster['cid'])
+        if self.is_instance():
+            content = 'Instance'
+        if self.is_string():
             content = repr(x['value'])
-            if 'unob' in x: content += '({})'.format(repr(x['unob']))
-        if cid in {kkClassId['Array'], kkClassId['ImmutableArray']}:
-            content += '[{}]'.format(len(x['value'])) #repr(x['value'])
+        extra = self.get_extra_fields()
+        content += '({})'.format(extra) if extra else ''
         return '{base}{1}->{0}'.format(self.ref, content, base="<base>" if self.is_base() else "")
+    def get_extra_fields(self):
+        x = self.x
+        resolve_mint = lambda x: x.x['value'] if x.is_cid('Mint') else x
+        resolve_string = lambda x: repr(unob_string(x)) if x.is_string() else x
+        if self.is_string():
+            return repr(x['unob']) if 'unob' in x else None
+        if self.is_cid('Mint', 'Double'):
+            return x['value']
+        if self.is_array():
+            return len(x['value'])
+        if self.is_cid('GrowableObjectArray'):
+            return '{}, {}'.format(resolve_mint(x['length']), x['data'])
+        if self.is_cid('UnlinkedCall'):
+            return resolve_string(x['target_name'])
+        if self.is_instance():
+            return self.cluster['cid']
+        if self.is_cid('Type'):
+            th = [ resolve_mint(x['type_class_id']) ]
+            if not x['arguments'].is_null():
+                th.append(x['arguments'])
+            return ", ".join(str(x) for x in th)
+        if self.is_cid('Field', 'Function', 'Code', 'Class', 'PatchClass', 'Type'):
+            return # TODO
+        if self.is_cid('Library', 'Script'):
+            return resolve_string(x['url'])
     def __repr__(self):
         return self.__str__()
 
@@ -243,9 +273,12 @@ class Snapshot:
     def initialize_settings(self):
         ''' Detect settings / flags from parsed header '''
         # detect arch
-        archs = { 'x64': True, 'ia32': False, 'arm64': True, 'arm': False }
-        names = ( x.split('-')[0] for x in self.features )
-        self.is_64 = next( archs[x] for x in names if x in archs )
+        ARCHS = { 'x64': True, 'ia32': False, 'arm64': True, 'arm': False }
+        arch = [ x for x in self.features if x.split('-')[0] in ARCHS ]
+        if len(arch) != 1:
+            raise ParseError("Can't determine arch in {}".format(self.features))
+        self.arch = arch[0]
+        self.is_64 = ARCH_IS_64[self.arch.split('-')[0]]
 
         # detect mode
         self.is_debug = self.features.get('debug', False)
@@ -441,6 +474,13 @@ class Snapshot:
                     self.notice('Script {} owned by multiple libraries, this should not happen'.format(l))
                 self.scripts_lib[r.ref] = l
 
+        self.entry_points = {}
+        for c in self.getrefs('Code'):
+            # FIXME: register active_instructions too, if present
+            ep = self.get_entry_points(c.x['instructions'])
+            for k, v in ep.items():
+                self.entry_points[k] = (c, value)
+
         # Consistency checks
         if len(self.scripts_lib) != len(self.getrefs('Script')):
             self.notice('There are {} scripts but only {} are associated to a library'.format(len(self.getrefs('Script')), len(self.scripts_lib)))
@@ -449,3 +489,15 @@ class Snapshot:
                 self.notice('Class {} does not have matching script / library'.format(c))
 
         # TODO: function table, class table
+
+    def get_entry_points(instr, offset=False):
+        kind = { 'kFullJIT': 0, 'kFullAOT': 1 }[kKind[self.kind]]
+        mono, poly = kEntryOffsets[self.arch.split('-')[0]][kind]
+
+        ep = { mono: { 'polymorphic': False, 'checked': True } }
+        if not instr['flags']['single_entry']:
+            ep[poly] = { 'polymorphic': True, 'checked': True }
+        if instr['unchecked_entrypoint_pc_offset']:
+            ep = { **ep, **{ k+instr['unchecked_entrypoint_pc_offset']: { **v, 'checked': False } for k, v in ep.items() } }
+        assert all(0 <= k < len(instr['data']) for k in ep)
+        return ep if offset else { k+instr['data_addr']: v for k, v in ep.items() }

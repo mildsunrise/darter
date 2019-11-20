@@ -68,6 +68,32 @@ kCachedDescriptorCount = 32
 kCachedICDataArrayCount = 4
 
 
+### Entry points
+
+# tuples are (kMonomorphicEntryOffset<x>, kPolymorphicEntryOffset<x>)
+kEntryOffsets = {
+    'ia32': (
+        (6, 34), # JIT
+        (0, 0),  # AOT
+    ),
+    'x64': (
+        (8, 40), # JIT
+        (8, 32), # AOT
+    ),
+    'arm': (
+        (0, 40), # JIT
+        (0, 20), # AOT
+    ),
+    'arm64': (
+        (8, 48), # JIT
+        (8, 28), # AOT
+    ),
+    'dbc': (
+        (0, 0),  # JIT
+        (0, 0),  # AOT
+    ),
+}
+
 ### AppJIT blob wrapping
 
 kAppJITMagic = 0xf6f6dcdc
