@@ -75,7 +75,7 @@ def make_cluster_handlers(s):
                 'Uint64': (8, 'Q'),
             }
             def __init__(self, cid):
-                m = re.fullmatch('k(External)?TypedData(.+)ArrayCid', kClassId[cid])
+                m = re.fullmatch('(External)?TypedData(.+)Array', kClassId[cid])
                 self.external = bool(m.group(1))
                 element_size, parse_char = self.type_associations[m.group(2)]
                 elem = lambda f: unpack('<' + parse_char, f.read(element_size))[0]

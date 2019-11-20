@@ -2,8 +2,8 @@ import re
 
 from ..constants import kClassId, kkClassId, kStubCodeList, kCachedICDataArrayCount, kCachedDescriptorCount
 
-class_cids = [ n for n in range(kkClassId['kClassCid'], kkClassId['kInstanceCid']) if n != kkClassId['kErrorCid'] ]
-class_cids += [ kkClassId['kDynamicCid'], kkClassId['kVoidCid'] ]
+class_cids = [ n for n in range(kkClassId['Class'], kkClassId['Instance']) if n != kkClassId['Error'] ]
+class_cids += [ kkClassId['Dynamic'], kkClassId['Void'] ]
 
 make_base_entries = lambda includes_code: [
     ("Object::null()", "Null", "null"),
@@ -32,8 +32,8 @@ make_base_entries = lambda includes_code: [
     ("Object::dynamic_invocation_forwarder_bytecode().raw()", "Bytecode", "<dyn forwarder>"),
     *( ("ArgumentsDescriptor::cached_args_descriptors_[i]", "ArgumentsDescriptor", "<cached arguments descriptor>") for _ in range(kCachedDescriptorCount) ),
     *( ("ICData::cached_icdata_arrays_[i]", "Array", "<empty icdata entries>") for _ in range(kCachedICDataArrayCount) ),
-    *( ("class_table()->At(cid)", "Class", re.fullmatch('k(.+)Cid', kClassId[cid]).group(1)) for cid in class_cids ), # Adapted
-    *( ( ("StubCode::EntryAt(i).raw()", "Code", "<stub code>") for _ in kStubCodeList ) if not includes_code else [] ),
+    *( ("class_table()->At(cid)", "Class", kClassId[cid]) for cid in class_cids ), # Adapted
+    *( ( ("StubCode::EntryAt(i).raw()", "Code", "<stub code {}>".format(i)) for i in kStubCodeList ) if not includes_code else [] ),
 ]
 
 def make_base_objects(includes_code):

@@ -28,7 +28,7 @@ def parse_features(features):
     return result
 
 format_cid = lambda cid: \
-    re.fullmatch('k(.+)Cid', kClassId[cid]).group(1) if type(cid) is int and 0 <= cid < kNumPredefinedCids else repr(cid)
+    kClassId[cid] if type(cid) is int and 0 <= cid < kNumPredefinedCids else repr(cid)
 
 unob_string = lambda str: str.x['unob'] if 'unob' in str.x else str.x['value']
 
@@ -57,10 +57,10 @@ class Ref:
         fields = ['url' if 'url' in x else 'name']
         fields = [(f, unob_string(x[f])) for f in fields if f in x]
         content = format_cid(cid) + ''.join(' {}={}'.format(f, repr(v)) for f, v in fields if v)
-        if cid in {kkClassId['kOneByteStringCid'], kkClassId['kTwoByteStringCid']}:
+        if cid in {kkClassId['OneByteString'], kkClassId['TwoByteString']}:
             content = repr(x['value'])
             if 'unob' in x: content += '({})'.format(repr(x['unob']))
-        if cid in {kkClassId['kArrayCid'], kkClassId['kImmutableArrayCid']}:
+        if cid in {kkClassId['Array'], kkClassId['ImmutableArray']}:
             content += '[{}]'.format(len(x['value'])) #repr(x['value'])
         return '{base}{1}->{0}'.format(self.ref, content, base="<base>" if self.is_base() else "")
     def __repr__(self):
@@ -336,10 +336,10 @@ class Snapshot:
             handler = 'TypedData'
         elif isTypedDataView(cid):
             handler = 'TypedDataView'
-        elif cid == kkClassId['kImmutableArrayCid']:
+        elif cid == kkClassId['ImmutableArray']:
             handler = 'Array'
         else:
-            handler = re.fullmatch('k(.+)Cid', kClassId[cid]).group(1)
+            handler = kClassId[cid]
         cluster = { 'handler': handler, 'cid': cid }
         cluster['ref_start'] = self.refs['next']
         if not hasattr(self.handlers, handler):

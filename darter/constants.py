@@ -12,13 +12,14 @@ kSectionMarker = 0xABAB
 
 kMaxPreferredCodeAlignment = 32
 
+# as an exception, kClassId names are stripped of k- and -Cid (except items 2 and 3: kFreeListElement, kForwardingCorpse)
 with open(os.path.join(os.path.dirname(__file__), 'data', 'classIds.json')) as f:
     kClassId = json.load(f)
 kkClassId = { k: v for (v, k) in enumerate(kClassId) }
-kNumPredefinedCids = kkClassId['kNumPredefinedCids']
-kInstanceCid = kkClassId['kInstanceCid']
-kTypedDataInt8ArrayCid = kkClassId['kTypedDataInt8ArrayCid']
-kByteDataViewCid = kkClassId['kByteDataViewCid']
+# kNumPredefinedCids is not included in kClassIds
+kNumPredefinedCids = len(kClassId)
+kTypedDataInt8ArrayCid = kkClassId['TypedDataInt8Array']
+kByteDataViewCid = kkClassId['ByteDataView']
 
 kTypedDataCidRemainderInternal = 0
 kTypedDataCidRemainderView = 1
