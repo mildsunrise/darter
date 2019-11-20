@@ -341,11 +341,9 @@ class Snapshot:
         else:
             handler = kClassId[cid]
         cluster = { 'handler': handler, 'cid': cid }
-        cluster['ref_start'] = self.refs['next']
         if not hasattr(self.handlers, handler):
             raise ParseError(self.data_offset + self.data.tell(), 'Cluster "{}" still not implemented'.format(handler))
         getattr(self.handlers, handler)(cid).alloc(self.data, cluster)
-        cluster['ref_end'] = self.refs['next']
         
         if self.is_debug:
             serializers_next_ref_index = readint(f, 32)
