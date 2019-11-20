@@ -47,7 +47,7 @@ def make_cluster_handlers(s):
         do_read_from = False
         def alloc(self, f, cluster):
             for _ in range(readuint(f)):
-                allocref(cluster, { 'offset': readuint(f) }, 'refs_shared') # FIXME implement
+                allocref(cluster, { 'offset': readuint(f), 'shared': True }) # FIXME implement
             running_offset = 0
             for _ in range(readuint(f)):
                 running_offset += readuint(f) << kObjectAlignmentLog2
@@ -95,9 +95,9 @@ def make_cluster_handlers(s):
         class Class(Handler):
             def alloc(self, f, cluster):
                 for _ in range(readuint(f)):
-                    allocref(cluster, { 'cid': readcid(f) }, 'refs_class_table')
+                    allocref(cluster, { 'cid': readcid(f), 'predefined': True })
                 for _ in range(readuint(f)):
-                    allocref(cluster, {})
+                    allocref(cluster, { 'predefined': False })
 
             def fill(self, f, x, ref):
                 x['cid'] = readcid(f)

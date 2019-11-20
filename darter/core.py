@@ -39,11 +39,10 @@ unob_string = lambda str: str.x['unob'] if 'unob' in str.x else str.x['value']
 # if read methods fail
 
 class Ref:
-    def __init__(self, s, ref, cluster, x, prop):
+    def __init__(self, s, ref, cluster, x):
         self.ref = ref
         self.x = x
         self.cluster = cluster
-        self.prop = prop
         self.src = []
         self.s = s
     def is_base(self):
@@ -147,7 +146,7 @@ class Snapshot:
             self.read_fill_cluster(cluster)
 
         self.info('Reading roots...')
-        root = self.refs['root'] = Ref(self, 'root', {'handler': 'ObjectStore', 'cid': 'ObjectStore'}, {}, 'refs')
+        root = self.refs['root'] = Ref(self, 'root', {'handler': 'ObjectStore', 'cid': 'ObjectStore'}, {})
         if self.vm:
             self.storeref(self.data, root.x, 'symbol_table', root)
             if self.includes_code:
@@ -298,18 +297,17 @@ class Snapshot:
         base_objects = min(base_objects, exp_base_objects)
         # fill base objects
         for r in range(1, 1 + base_objects):
-            self.refs[r] = Ref(self, base[r].ref, base[r].cluster, base[r].x, base[r].prop)
+            self.refs[r] = Ref(self, base[r].ref, base[r].cluster, base[r].x)
         self.refs['next'] = 1 + base_objects
         # fill any missing refs
         tmp_cluster = { 'handler': 'UnknownBase', 'cid': 'unknown' }
         while self.refs['next']-1 < exp_base_objects: self.allocref(tmp_cluster, {})
 
-    def allocref(self, cluster, x, prop='refs'):
-        if prop not in cluster:
-            cluster[prop] = []
-        idx = len(cluster[prop])
-        cluster[prop].append(x)
-        self.refs[self.refs['next']] = Ref(self, self.refs['next'], cluster, x, prop)
+    def allocref(self, cluster, x):
+        if 'refs' not in cluster:
+            cluster['refs'] = []
+        cluster['refs'].append(x)
+        self.refs[self.refs['next']] = Ref(self, self.refs['next'], cluster, x)
         self.refs['next'] += 1
 
     def readref(self, f, source):
