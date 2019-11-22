@@ -33,7 +33,7 @@ make_base_entries = lambda includes_code: [
     ("Object::dynamic_invocation_forwarder_bytecode().raw()", "Bytecode", "<dyn forwarder>"),
     *( ("ArgumentsDescriptor::cached_args_descriptors_[i]", "ArgumentsDescriptor", "<cached arguments descriptor {}>".format(i)) for i in range(kCachedDescriptorCount) ),
     *( ("ICData::cached_icdata_arrays_[i]", "Array", "<empty icdata entries {}>".format(i)) for i in range(kCachedICDataArrayCount) ),
-    *( ("class_table()->At(cid)", "Class", kClassId[cid]) for cid in class_cids ), # Adapted
+    *( ("class_table()->At(cid)", "Class", kClassId[cid], { 'cid': cid }) for cid in class_cids ), # Adapted
     *( ( ("StubCode::EntryAt(i).raw()", "Code", "<stub code {}>".format(i)) for i in kStubCodeList ) if not includes_code else [] ),
 ]
 

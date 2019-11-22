@@ -30,6 +30,8 @@ def make_cluster_handlers(s):
     readref = s.readref
     storeref = s.storeref
 
+    warning = s.warning
+
     # Base handlers
 
     class Handler:
@@ -102,13 +104,17 @@ def make_cluster_handlers(s):
                     allocref(cluster, { 'predefined': False })
 
             def fill(self, f, x, ref):
-                x['cid'] = readcid(f)
-                # regular: assert that cid >= kNumPredefinedCids
+                cid = readcid(f)
+                if x['predefined'] and cid != x['cid']:
+                    warning('Predefined class has different CID (alloc={}, fill={})'.format(x['cid'], cid))
+                if not x['predefined'] and cid < kNumPredefinedCids:
+                    warning('CID is predefined')
+                x['cid'] = cid
                 
                 if (not is_precompiled) and (kind != kkKind['kFullAOT']):
                     x['binary_declaration'] = readuint(f, 32)
                 
-                # FIXME not store these two (just discard) if (predefined and IsInternalVMdefinedClassId)
+                # these two should be discarded if (predefined and IsInternalVMdefinedClassId)
                 x['instance_size_in_words'] = readint(f, 32)
                 x['next_field_offset_in_words'] = readint(f, 32)
 
@@ -118,8 +124,6 @@ def make_cluster_handlers(s):
                 x['token_pos'] = readtokenposition(f)
                 x['end_token_pos'] = readtokenposition(f)
                 x['state_bits'] = readuint(f, 32)
-                
-                # regular: store at class table
 
         class Instance(Handler):
             do_read_from = False
@@ -224,7 +228,7 @@ def make_cluster_handlers(s):
                     elif e['entry_type'] in {kkEntryType['kNativeFunction'], kkEntryType['kNativeFunctionWrapper']}:
                         pass
                     else:
-                        print('WARN: Unknown entry type {}... continuing anyway'.format(e['entry_type']))
+                        warning('Unknown entry type {}...'.format(e['entry_type']))
                     return e
                 x['entries'] = [read_entry(n) for n in range(readuint(f))]
 

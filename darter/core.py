@@ -194,6 +194,7 @@ class Snapshot:
         if self.data.tell() != self.length + 4:
             self.warning('Snapshot should end at 0x{:x} but we are at 0x{:x}'.format(self.length + 4, self.data.tell()))
 
+        self.link_cids()
         if self.do_build_tables:
             self.build_tables()
         return self
@@ -450,6 +451,46 @@ class Snapshot:
         section_marker = readint(self.data, 32)
         if section_marker != kSectionMarker:
             raise ParseError(self.data_offset + offset, 'Section marker doesn\'t match')
+
+
+    # CID LINKING #
+
+    def link_cids(self):
+        ''' This method builds a CID-to-Ref table, and then manually inserts references
+            from things that reference a CID (Instance, Type and predefined Class) to their original Class. '''
+        # Build class table, and link predefined Class objects
+        self.classes = {}
+        for i in range(1, self.refs['next']):
+            r = self.refs[i]
+            if (r.cluster['cid'] == 'BaseObject' and r.x['type'] == 'Class') or r.is_cid('Class'):
+                if r.x['cid'] in self.classes:
+                    self.notice('Duplicated class with CID {}'.format(r.x['cid']))
+                self.classes[r.x['cid']] = r
+
+        # Logic to reference a CID from a ref
+        broken_refs = False
+        def reference_cid(ref, cid):
+            if cid not in self.classes:
+                nonlocal broken_refs
+                broken_refs = True
+                ref.x['_class'] = None
+                return
+            ref.x['_class'] = self.classes[cid]
+            self.classes[cid].src.append((ref, '_class'))
+
+        # Link references from Instance and Type objects
+        for c in self.base_clusters + self.clusters:
+            if c['cid'] == kkClassId['Instance']:
+                for r in c['refs']:
+                    reference_cid(r, c['cid'])
+            if c['cid'] == kkClassId['Type']:
+                for r in c['refs']:
+                    cid = r.x['type_class_id']
+                    reference_cid(r, cid.x['value'] if cid.is_cid('Mint') else None)
+
+        if broken_refs:
+            self.notice('There were broken or invalid CID references; None has been set as _class')
+
 
     # CONVENIENCE API #
 
