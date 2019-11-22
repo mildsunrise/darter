@@ -84,16 +84,59 @@ class Ref:
         if self.is_cid('UnlinkedCall'):
             return resolve_string(x['target_name'])
         if self.is_instance():
-            return self.cluster['cid']
+            return x['_class']
         if self.is_cid('Type'):
-            th = [ resolve_mint(x['type_class_id']) ]
+            th = [ x['_class'] ]
             if not x['arguments'].is_null():
                 th.append(x['arguments'])
-            return ", ".join(str(x) for x in th)
-        if self.is_cid('Field', 'Function', 'Code', 'Class', 'PatchClass', 'Type'):
-            return # TODO
+            return ', '.join(str(x) for x in th)
+        if self.is_cid('Class'):
+            lib = x['library']
+            if lib.is_cid('Library'):
+                if lib.x['url'].x['value'] == 'dart:core':
+                    return resolve_string(x['name'])
+                lib = resolve_string(lib.x['url'])
+            return '{}, {}'.format(lib, resolve_string(x['name']))
+        if self.is_cid('Function'):
+            if x['name'].is_string() and x['name'].x['value'] == '<anonymous closure>':
+                return 'closure'
+            return resolve_string(x['name'])
+        if self.is_cid('Field'):
+            v = x['value']
+            descr = 'at +{}'.format(v.x['value']) if v.is_cid('Mint') else v
+            return '{}, {}, {}'.format(resolve_string(x['name']), descr, x['type'].x['_class'])
         if self.is_cid('Library', 'Script'):
             return resolve_string(x['url'])
+    def describe(self):
+        ''' Like str(), but gives full info about its location in the code '''
+        location = self.locate()
+        if not location: return str(self)
+        return '{}{{ {} }}'.format(self, ' '.join(str(x) for x in location))
+    def locate(self):
+        ''' Returns list of 'parent' objects, where the first item is the
+            immediate parent, and so on. Items can also be strings describing
+            position inside the parent object. List may be empty or None if unknown. '''
+        x = self.x
+        with_next = lambda p: [p] + (lambda x: [] if x is None else x)(p.locate())
+        if self.is_cid('Code'):
+            res = with_next(x['owner'])
+            if x['owner'].is_cid('Class') and x['owner'].x['allocation_stub'] is self:
+                res = [ '<alloc>' ] + res
+            if x['owner'].is_null():
+                srcs = [ x for x in self.src if x[0].ref == 'root' ]
+                if len(srcs) == 1: return [ srcs[0][-1] ]
+            return res
+        if self.is_cid('Function'):
+            if x['data'].is_cid('ClosureData'):
+                return with_next(x['data'].x['parent_function'])
+            return with_next(x['owner'])
+        if self.is_cid('PatchClass'):
+            if x['origin_class'] == x['patched_class']:
+                return with_next(x['origin_class'])
+        if self.is_cid('Field'):
+            return with_next(x['owner'])
+        if self.is_cid('Class'):
+            return []
     def __repr__(self):
         return self.__str__()
 
