@@ -40,9 +40,9 @@ make_base_entries = lambda includes_code: [
 def init_base_objects(Ref, snapshot, includes_code):
     tmp_cluster = { 'handler': 'BaseObject', 'cid': 'BaseObject' }
     entries = make_base_entries(includes_code)
-    get_data = lambda e: { 'type': e[1], 'value': e[2], **(e[3] if len(e) >= 3 else {}) }
+    get_data = lambda e: { 'type': e[1], 'value': e[2], **(e[3] if len(e) > 3 else {}) }
     # ref 0 is illegal
-    snapshot.refs = { i+1: Ref(snapshot, i+1, get_data(entry), tmp_cluster)
+    snapshot.refs = { i+1: Ref(snapshot, i+1, tmp_cluster, get_data(entry))
         for i, entry in enumerate(entries) }
     snapshot.refs['next'] = len(entries) + 1
     snapshot.base_clusters = []

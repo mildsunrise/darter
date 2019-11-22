@@ -53,13 +53,14 @@ class Ref:
         return any(self.cluster['cid'] == kkClassId[name] for name in names)
     is_array = lambda self: self.is_cid('Array', 'ImmutableArray')
     is_string = lambda self: self.is_cid('OneByteString', 'TwoByteString')
-    is_instance = lambda self: self.is_cid('Instance') or self.cluster['cid'] >= kNumPredefinedCids
+    is_instance = lambda self: self.is_cid('Instance') or ( \
+        type(self.cluster['cid']) is int and self.cluster['cid'] >= kNumPredefinedCids )
     is_baseobject = lambda self: self.cluster['cid'] == 'BaseObject'
     is_null = lambda self: self.ref == 1
     def __str__(self):
         x = self.x
         if self.is_baseobject():
-            return '<base{}>{}'.format('' if x.ref in {1} else (' ' + x['type']), x['value'])
+            return '<base{}>{}'.format('' if self.ref in {1,9,10} else (' ' + x['type']), x['value'])
         content = format_cid(self.cluster['cid'])
         if self.is_instance():
             content = 'Instance'
@@ -280,7 +281,7 @@ class Snapshot:
         if len(arch) != 1:
             raise ParseError("Can't determine arch in {}".format(self.features))
         self.arch = arch[0]
-        self.is_64 = ARCH_IS_64[self.arch.split('-')[0]]
+        self.is_64 = ARCHS[self.arch.split('-')[0]]
 
         # detect mode
         self.is_debug = self.features.get('debug', False)
@@ -521,7 +522,7 @@ class Snapshot:
             # FIXME: register active_instructions too, if present
             ep = self.get_entry_points(c.x['instructions'])
             for k, v in ep.items():
-                self.entry_points[k] = (c, value)
+                self.entry_points[k] = (c, v)
 
         # Consistency checks
         if len(self.scripts_lib) != len(self.getrefs('Script')):
@@ -532,8 +533,8 @@ class Snapshot:
 
         # TODO: function table, class table
 
-    def get_entry_points(instr, offset=False):
-        kind = { 'kFullJIT': 0, 'kFullAOT': 1 }[kKind[self.kind]]
+    def get_entry_points(self, instr, offset=False):
+        kind = { 'kFullJIT': 0, 'kFullAOT': 1 }[kKind[self.kind][0]]
         mono, poly = kEntryOffsets[self.arch.split('-')[0]][kind]
 
         ep = { mono: { 'polymorphic': False, 'checked': True } }
