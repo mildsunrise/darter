@@ -8,7 +8,7 @@ from .read import *
 from .constants import *
 from .clusters import make_cluster_handlers
 from .data.type_data import make_type_data
-from .data.base_objects import make_base_objects
+from .data.base_objects import init_base_objects
 
 
 class ParseError(Exception):
@@ -122,6 +122,7 @@ class Snapshot:
         instructions -- The instructions blob (if present).
         vm -- True if this is a VM snapshot; False if isolate snapshot (default).
         base -- Base snapshot, which should always be passed if vm=False. If not passed, the core base objects are used.
+            IMPORTANT: The base will be poisoned, you should discard it after passing it here.
 
         Parsing behaviour
         -----------------
@@ -321,22 +322,26 @@ class Snapshot:
     # REFS HANDLING #
 
     def initialize_references(self):
-        # refs is a dict from int to Ref,
-        # except for 'next' key which just stores next ID to be assigned
-        self.refs = { 'next': 1 } # ref 0 is illegal
-
-        # check that base objects match
-        base = self.base.refs if self.base else make_base_objects(self.includes_code)
+        base = self.base
         exp_base_objects = self.num_base_objects
-        base_objects = base['next']-1
+
+        # copy refs from base, posion them to be ours
+        if base:
+            base_objects = base.refs['next']-1
+            self.base_clusters = list(self.base.clusters)
+            # refs is a dict from int to Ref,
+            # except for 'next' key which just stores next ID to be assigned
+            self.refs = { 'next': min(base_objects, exp_base_objects) + 1 }
+            for i in range(1, self.refs['next']):
+                ref = self.refs[i] = base.refs[i]
+                ref.s = self
+        else:
+            init_base_objects(Ref, self, self.includes_code)
+            base_objects = self.refs['next']-1
+
+        # fill any missing refs
         if base_objects != exp_base_objects:
             self.notice('Snapshot expected {} base objects, but the provided base has {}'.format(exp_base_objects, base_objects))
-        base_objects = min(base_objects, exp_base_objects)
-        # fill base objects
-        for r in range(1, 1 + base_objects):
-            self.refs[r] = Ref(self, base[r].ref, base[r].cluster, base[r].x)
-        self.refs['next'] = 1 + base_objects
-        # fill any missing refs
         tmp_cluster = { 'handler': 'UnknownBase', 'cid': 'unknown' }
         while self.refs['next']-1 < exp_base_objects: self.allocref(tmp_cluster, {})
 

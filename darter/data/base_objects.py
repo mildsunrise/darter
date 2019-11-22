@@ -5,6 +5,7 @@ from ..constants import kClassId, kkClassId, kStubCodeList, kCachedICDataArrayCo
 class_cids = [ n for n in range(kkClassId['Class'], kkClassId['Instance']) if n != kkClassId['Error'] ]
 class_cids += [ kkClassId['Dynamic'], kkClassId['Void'] ]
 
+# tuples are (original_code, type, value[, additional_fields])
 make_base_entries = lambda includes_code: [
     ("Object::null()", "Null", "null"),
     ("Object::sentinel().raw()", "Null", "sentinel"),
@@ -36,15 +37,12 @@ make_base_entries = lambda includes_code: [
     *( ( ("StubCode::EntryAt(i).raw()", "Code", "<stub code {}>".format(i)) for i in kStubCodeList ) if not includes_code else [] ),
 ]
 
-def make_base_objects(includes_code):
-    tmp_cluster = { 'handler': 'BaseObject', 'cid': 'BaseObject' } 
-    class BaseRef:
-        def __init__(self, ref, entry):
-            self.ref = ref
-            self.cluster = tmp_cluster
-            self.x = { 'type': entry[1], 'value': entry[2] }
-            self.prop = ''
+def init_base_objects(Ref, snapshot, includes_code):
+    tmp_cluster = { 'handler': 'BaseObject', 'cid': 'BaseObject' }
     entries = make_base_entries(includes_code)
-    base = { i+1: BaseRef(i+1, entry) for i, entry in enumerate(entries) }
-    base['next'] = len(entries) + 1
-    return base
+    get_data = lambda e: { 'type': e[1], 'value': e[2], **(e[3] if len(e) >= 3 else {}) }
+    # ref 0 is illegal
+    snapshot.refs = { i+1: Ref(snapshot, i+1, get_data(entry), tmp_cluster)
+        for i, entry in enumerate(entries) }
+    snapshot.refs['next'] = len(entries) + 1
+    snapshot.base_clusters = []
