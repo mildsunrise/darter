@@ -451,17 +451,13 @@ class Snapshot:
         if section_marker != kSectionMarker:
             raise ParseError(self.data_offset + offset, 'Section marker doesn\'t match')
 
-   # CONVENIENCE API #
+    # CONVENIENCE API #
 
     getrefs = lambda self, name: self.clrefs.get(name, [])
 
     def build_tables(self):
-        self.cl = {}
         self.clrefs = {}
-        for c in self.clusters:
-            if c['cid'] in self.cl:
-                self.notice('Cluster {} is duplicated'.format(format_cid(c['cid'])))
-            self.cl[c['cid']] = c
+        for c in self.base_clusters + self.clusters:
             n = format_cid(c['cid'])
             if n not in self.clrefs: self.clrefs[n] = []
             self.clrefs[n] += c['refs']
