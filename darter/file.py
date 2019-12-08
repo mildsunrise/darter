@@ -1,44 +1,47 @@
 # FILE: Stores top level logic to unwrap blobs from a snapshot file and parse them
 
 from struct import unpack
-import r2pipe   # FIXME: use something more portable
 
 from .constants import kAppAOTSymbols, kAppJITMagic, kAppSnapshotPageSize
 from .core import Snapshot
 
 # FIXME: verify that kind, version and features is the same for both snapshots
-# FIXME: verify that archs match
 
-def parse_elf_snapshot(fname, report_virtual=True, **kwargs):
-    ''' Open and parse an ELF (executable) AppAOT snapshot. Note that by default the reported
-        offsets are virtual addresses, not physical ones. Returns isolate snapshot. '''
-    f = open(fname, 'rb')
+def parse_elf_snapshot(fname, **kwargs):
+    ''' Open and parse an ELF (executable) AppAOT snapshot. Note that the reported
+        offsets are virtual addresses, not physical ones. Returns isolate snapshot.
+        NOTE: This method requires pyelftools '''
+    log = lambda n, x: print(x) if kwargs.get('print_level', 3) >= n else None
+    from elftools.elf.elffile import ELFFile
+    from elftools.elf.sections import SymbolTableSection
 
-    # Obtain file info (sections, symbols)
-    r2 = r2pipe.open(fname)
-    sections = r2.cmdj('iSj')
-    symbol_list = r2.cmdj('isj')
-    symbols = { s['name']: s for s in symbol_list }
+    # Open file, obtain symbols
+    f = ELFFile(open(fname, 'rb'))
+    sections = list(f.iter_sections())
+    tables = [ s for s in sections if isinstance(s, SymbolTableSection) ]
+    symbols = { sym.name: sym.entry for table in tables for sym in table.iter_symbols() }
 
     # Extract blobs
     blobs, offsets = [], []
     for s in kAppAOTSymbols:
         s = symbols[s]
-        section = next(S for S in sections if 0 <= s['paddr'] - S['paddr'] < S['size'])
-        section_end = section['paddr'] + section['size']
-        f.seek(s['paddr'])
-        blobs.append(f.read(section_end - s['paddr']))
-        offsets.append(s['vaddr' if report_virtual else 'paddr'])
+        section = next(S for S in sections if 0 <= s.st_value - S['sh_addr'] < S.data_size)
+        blob = section.data()[(s.st_value - section['sh_addr']):][:s.st_size]
+        assert len(blob) == s.st_size
+        blobs.append(blob), offsets.append(s.st_value)
 
     # Parse VM snapshot, then isolate snapshot
-    print('------- PARSING VM SNAPSHOT --------\n')
+    log(3, '------- PARSING VM SNAPSHOT --------\n')
     base = Snapshot(data=blobs[0], data_offset=offsets[0],
                     instructions=blobs[1], instructions_offset=offsets[1],
                     vm=True, **kwargs).parse()
-    print('\n------- PARSING ISOLATE SNAPSHOT --------\n')
-    return Snapshot(data=blobs[2], data_offset=offsets[2],
+    log(3, '\n------- PARSING ISOLATE SNAPSHOT --------\n')
+    res = Snapshot(data=blobs[2], data_offset=offsets[2],
                     instructions=blobs[3], instructions_offset=offsets[3],
                     base=base, **kwargs).parse()
+
+    # FIXME: verify that archs match
+    return res
 
 def parse_appjit_snapshot(fname, base=None, **kwargs):
     ''' Open and parse an AppJIT snapshot file. Returns isolate snapshot. '''
