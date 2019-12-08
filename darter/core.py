@@ -57,6 +57,12 @@ class Ref:
         type(self.cluster['cid']) is int and self.cluster['cid'] >= kNumPredefinedCids )
     is_baseobject = lambda self: self.cluster['cid'] == 'BaseObject'
     is_null = lambda self: self.ref == 1
+    def values(self):
+        if self.ref == 3:
+            return []
+        if self.is_array():
+            return list(self.x['value'])
+        raise Exception("Not an array")
     def __str__(self):
         x = self.x
         if self.is_baseobject():
@@ -98,9 +104,10 @@ class Ref:
                 lib = resolve_string(lib.x['url'])
             return '{}, {}'.format(lib, resolve_string(x['name']))
         if self.is_cid('Function'):
+            name = resolve_string(x['name'])
             if x['name'].is_string() and x['name'].x['value'] == '<anonymous closure>':
-                return 'closure'
-            return resolve_string(x['name'])
+                name = 'closure'
+            return '{}, {}'.format(name, len(x['parameter_types'].values()))
         if self.is_cid('Field'):
             v = x['value']
             descr = 'at +{}'.format(v.x['value']) if v.is_cid('Mint') else v
