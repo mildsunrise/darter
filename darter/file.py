@@ -5,8 +5,6 @@ from struct import unpack
 from .constants import kAppAOTSymbols, kAppJITMagic, kAppSnapshotPageSize
 from .core import Snapshot
 
-# FIXME: verify that kind, version and features is the same for both snapshots
-
 def parse_elf_snapshot(fname, **kwargs):
     ''' Open and parse an ELF (executable) AppAOT snapshot. Note that the reported
         offsets are virtual addresses, not physical ones. Returns isolate snapshot.
@@ -40,7 +38,9 @@ def parse_elf_snapshot(fname, **kwargs):
                     instructions=blobs[3], instructions_offset=offsets[3],
                     base=base, **kwargs).parse()
 
-    # FIXME: verify that archs match
+    archs = { 'EM_386': 'ia32', 'EM_X86_64': 'x64', 'EM_ARM': 'arm', 'EM_AARCH64': 'arm64' }
+    if archs.get(f['e_machine']) != res.arch.split('-')[0] or (f.elfclass == 64) != res.is_64:
+        log(1, 'WARNING: ELF arch ({}) and/or class ({}) not matching snapshot'.format(f['e_machine'], f.elfclass))
     return res
 
 def parse_appjit_snapshot(fname, base=None, **kwargs):

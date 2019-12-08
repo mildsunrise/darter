@@ -318,6 +318,12 @@ class Snapshot:
         self.features = parse_features(readcstr(f).decode('ascii'))
         self.p(1, "[Snapshot header]\n  version = {}\n  features = {}\n".format(repr(self.version), repr(self.features)), show_offset=False)
 
+        # Check that header matches with base, if passed
+        if self.base and (self.base.version != self.version or 
+                self.base.kind != self.kind or self.base.features != self.features):
+            self.warning("Snapshot header doesn't match with base snapshot!")
+
+        # Parse counts
         self.num_base_objects, self.num_objects, self.num_clusters, self.code_order_length = (readuint(f) for _ in range(4))
         self.p(1, "  base objects: {}\n  objects: {}\n  clusters: {}\n  code order length = {}\n".format(
             self.num_base_objects, self.num_objects, self.num_clusters, self.code_order_length), show_offset=False)
