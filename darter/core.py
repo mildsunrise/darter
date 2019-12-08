@@ -523,14 +523,13 @@ class Snapshot:
             self.classes[cid].src.append((ref, '_class'))
 
         # Link references from Instance and Type objects
-        for c in self.base_clusters + self.clusters:
-            if c['cid'] == kkClassId['Instance']:
-                for r in c['refs']:
-                    reference_cid(r, c['cid'])
-            if c['cid'] == kkClassId['Type']:
-                for r in c['refs']:
-                    cid = r.x['type_class_id']
-                    reference_cid(r, cid.x['value'] if cid.is_cid('Mint') else None)
+        for i in range(1, self.refs['next']):
+            r = self.refs[i]
+            if r.is_instance():
+                reference_cid(r, r.cluster['cid'])
+            if r.is_cid('Type'):
+                cid = r.x['type_class_id']
+                reference_cid(r, cid.x['value'] if cid.is_cid('Mint') else None)
 
         if broken_refs:
             self.notice('There were broken or invalid CID references; None has been set as _class')
