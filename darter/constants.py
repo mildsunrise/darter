@@ -30,7 +30,7 @@ kDataSerializationAlignment = 8
 
 kEntryType = [ 'kTaggedObject', 'kImmediate', 'kNativeFunction', 'kNativeFunctionWrapper', 'kNativeEntryData' ]
 kkEntryType = { k: v for (v, k) in enumerate(kEntryType) }
-decodeObjectEntryTypeBits = lambda x: { "patchable": not (x >> 7), "entry_type": x & 0x7F }
+decode_object_entry_type_bits = lambda x: { "patchable": not (x >> 7), "type": x & 0x7F }
 
 __isBase = lambda x, r: \
     (kTypedDataInt8ArrayCid <= x < kByteDataViewCid) and (x - kTypedDataInt8ArrayCid) % 3 == r

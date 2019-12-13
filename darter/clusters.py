@@ -220,15 +220,15 @@ def make_cluster_handlers(s):
             do_read_from = False
             def fill(self, f, x, ref):
                 def read_entry(n):
-                    e = decodeObjectEntryTypeBits(readuint(f,8))
-                    if e['entry_type'] in {kkEntryType['kNativeEntryData'], kkEntryType['kTaggedObject']}:
+                    e = decode_object_entry_type_bits(readuint(f,8))
+                    if e['type'] in {kkEntryType['kNativeEntryData'], kkEntryType['kTaggedObject']}:
                         e['raw_obj'] = readref(f, (ref, 'entries', n, 'raw_obj'))
-                    elif e['entry_type'] in {kkEntryType['kImmediate']}:
+                    elif e['type'] in {kkEntryType['kImmediate']}:
                         e['raw_value'] = readint(f)
-                    elif e['entry_type'] in {kkEntryType['kNativeFunction'], kkEntryType['kNativeFunctionWrapper']}:
+                    elif e['type'] in {kkEntryType['kNativeFunction'], kkEntryType['kNativeFunctionWrapper']}:
                         pass
                     else:
-                        warning('Unknown entry type {}...'.format(e['entry_type']))
+                        warning('Unknown entry type {}...'.format(e['type']))
                     return e
                 x['entries'] = [read_entry(n) for n in range(readuint(f))]
 
