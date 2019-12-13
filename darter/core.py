@@ -58,7 +58,7 @@ class Ref:
     is_baseobject = lambda self: self.cluster['cid'] == 'BaseObject'
     is_null = lambda self: self.ref == 1
     def values(self):
-        if self.ref == 3:
+        if self.ref == 4:
             return []
         if self.is_array():
             return list(self.x['value'])
@@ -73,7 +73,7 @@ class Ref:
         if self.is_string():
             content = repr(x['value'])
         extra = self.get_extra_fields()
-        content += '({})'.format(extra) if extra else ''
+        content += '' if extra is None else '({})'.format(extra)
         return '{base}{1}->{0}'.format(self.ref, content, base="<base>" if self.is_base() else "")
     def get_extra_fields(self):
         x = self.x
@@ -107,11 +107,14 @@ class Ref:
             name = resolve_string(x['name'])
             if x['name'].is_string() and x['name'].x['value'] == '<anonymous closure>':
                 name = 'closure'
-            return '{}, {}'.format(name, len(x['parameter_types'].values()))
+            params = x['parameter_names']
+            params = 'EXT' if params.ref == 12 else len(params.values())
+            return '{}, {}'.format(name, params)
         if self.is_cid('Field'):
             v = x['value']
             descr = 'at +{}'.format(v.x['value']) if v.is_cid('Mint') else v
-            return '{}, {}, {}'.format(resolve_string(x['name']), descr, x['type'].x['_class'])
+            t = x['type'] if x['type'].is_baseobject() else x['type'].x['_class']
+            return '{}, {}, {}'.format(resolve_string(x['name']), descr, t)
         if self.is_cid('Library', 'Script'):
             return resolve_string(x['url'])
     def describe(self):
@@ -572,9 +575,9 @@ class Snapshot:
                     self.notice('Script {} owned by multiple libraries, this should not happen'.format(l))
                 self.scripts_lib[r.ref] = l
 
+        # FIXME: register active_instructions too, if present
         self.entry_points = {}
         for c in self.getrefs('Code'):
-            # FIXME: register active_instructions too, if present
             ep = self.get_entry_points(c.x['instructions'])
             for k, v in ep.items():
                 self.entry_points[k] = (c, v)
@@ -586,7 +589,6 @@ class Snapshot:
             if c.x['library'] != self.scripts_lib[c.x['script'].ref]:
                 self.notice('Class {} does not have matching script / library'.format(c))
 
-        # TODO: function table, class table
 
     def get_entry_points(self, instr, offset=False):
         kind = { 'kFullJIT': 0, 'kFullAOT': 1 }[kKind[self.kind][0]]
