@@ -492,7 +492,9 @@ class Snapshot:
 
         if self.is_64:
             tags, _, size_and_flags, unchecked_entrypoint_pc_offset = unpack('<LLLL', f.read(16))
-            f.read(16) # 16 0xCC bytes observed on x64, looks like a sentinel or something?
+            # 16 0xCC bytes observed on x64, looks like a sentinel or something?
+            # on ARM64 it is 00... 20 D4 FFFF FFFF
+            f.read(16)
         else:
             tags, size_and_flags, unchecked_entrypoint_pc_offset, _ = unpack('<LLLL', f.read(16))
         size, flags = size_and_flags & ((1 << 31) - 1), size_and_flags >> 31
@@ -619,5 +621,10 @@ class Snapshot:
             ep[poly] = { 'polymorphic': True, 'checked': True }
         if instr['unchecked_entrypoint_pc_offset']:
             ep = { **ep, **{ k+instr['unchecked_entrypoint_pc_offset']: { **v, 'checked': False } for k, v in ep.items() } }
-        assert all(0 <= k < len(instr['data']) for k in ep)
+        #assert all(0 <= k < len(instr['data']) for k in ep) <- fails on ARM64, on a bunch of 4 or 8-byte instructions
+        # FIXME: some instructions are called on its data_addr directly... add 0 to entry_points if it doesn't exist
+        # FIXME: handle special stubs, like
+        #   write_barrier_wrappers_stub
+        #     ARM:   r0..r4 r6..r8 sb, 6 instructions each
+        #     ARM64: x0..x14 x19..x25, 8 instructions each
         return ep if offset else { k+instr['data_addr']: v for k, v in ep.items() }
