@@ -5,13 +5,22 @@ from struct import unpack
 from .constants import kAppAOTSymbols, kAppJITMagic, kAppSnapshotPageSize
 from .core import Snapshot
 
+has_elftools = False
+try:
+    from elftools.elf.elffile import ELFFile
+    from elftools.elf.sections import SymbolTableSection
+    has_elftools = True
+except ImportError as e:
+    pass
+
+
 def parse_elf_snapshot(fname, **kwargs):
     ''' Open and parse an ELF (executable) AppAOT snapshot. Note that the reported
         offsets are virtual addresses, not physical ones. Returns isolate snapshot.
         NOTE: This method requires pyelftools '''
     log = lambda n, x: print(x) if kwargs.get('print_level', 3) >= n else None
-    from elftools.elf.elffile import ELFFile
-    from elftools.elf.sections import SymbolTableSection
+    if not has_elftools:
+        raise Exception('pyelftools not found, install it to use this method')
 
     # Open file, obtain symbols
     f = ELFFile(open(fname, 'rb'))
@@ -40,18 +49,19 @@ def parse_elf_snapshot(fname, **kwargs):
 
     archs = { 'EM_386': 'ia32', 'EM_X86_64': 'x64', 'EM_ARM': 'arm', 'EM_AARCH64': 'arm64' }
     if archs.get(f['e_machine']) != res.arch.split('-')[0] or (f.elfclass == 64) != res.is_64:
-        log(1, 'WARNING: ELF arch ({}) and/or class ({}) not matching snapshot'.format(f['e_machine'], f.elfclass))
+        log(1, 'WARN: ELF arch ({}) and/or class ({}) not matching snapshot'.format(f['e_machine'], f.elfclass))
     return res
 
 def parse_appjit_snapshot(fname, base=None, **kwargs):
     ''' Open and parse an AppJIT snapshot file. Returns isolate snapshot. '''
+    log = lambda n, x: print(x) if kwargs.get('print_level', 3) >= n else None
+
     # Read header, check magic
     f = open(fname, 'rb')
     magic = unpack('<Q', f.read(8))[0]
     if magic != kAppJITMagic:
-        print("WARN: Magic not matching, got 0x{:016x}".format(magic))
+        log(1, "WARN: Magic not matching, got 0x{:016x}".format(magic))
     lengths = unpack('<qqqq', f.read(4 * 8))
-    print('Blob lengths:', lengths)
 
     # Extract blobs
     blobs, offsets = [], []
@@ -62,15 +72,15 @@ def parse_appjit_snapshot(fname, base=None, **kwargs):
 
     # Parse VM snapshot if present, then isolate snapshot
     if blobs[0]:
-        print('\n------- PARSING VM SNAPSHOT --------\n')
+        log(3, '\n------- PARSING VM SNAPSHOT --------\n')
         base = Snapshot(data=blobs[0], data_offset=offsets[0],
                         instructions=blobs[1], instructions_offset=offsets[1],
                         vm=True, **kwargs).parse()
     else:
-        print('No base snapshot, skipping base snasphot parsing...')
+        log(3, 'No base snapshot, skipping base snasphot parsing...')
         assert not lengths[1]
 
-    print('\n------- PARSING ISOLATE SNAPSHOT --------\n')
+    log(3, '\n------- PARSING ISOLATE SNAPSHOT --------\n')
     return Snapshot(data=blobs[2], data_offset=offsets[2],
                     instructions=blobs[3], instructions_offset=offsets[3],
                     base=base, **kwargs).parse()
