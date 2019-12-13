@@ -3,6 +3,7 @@
 from io import BytesIO
 from struct import unpack
 import re
+from bisect import bisect
 
 from .read import *
 from .constants import *
@@ -582,13 +583,32 @@ class Snapshot:
             for k, v in ep.items():
                 self.entry_points[k] = (c, v)
 
+        key = lambda x: x.x['instructions']['data_addr']
+        self.code_objs = sorted(self.getrefs('Code'), key=key)
+        self.code_addrs = list(map(key, self.code_objs))
+
         # Consistency checks
         if len(self.scripts_lib) != len(self.getrefs('Script')):
             self.notice('There are {} scripts but only {} are associated to a library'.format(len(self.getrefs('Script')), len(self.scripts_lib)))
         for c in self.getrefs('Class'):
             if c.x['library'] != self.scripts_lib[c.x['script'].ref]:
                 self.notice('Class {} does not have matching script / library'.format(c))
+        for a, code, b in zip(self.code_addrs, self.code_objs, self.code_addrs[1:]):
+            assert a + len(code.x['instructions']['data']) < b  # code areas shouldn't overlap
 
+    def search_address(self, addr):
+        '''
+        Given a PC (instruction) address this returns (code, offset),
+        where `code` is the Code object it falls into, and `offset`
+        is the offset from the start of the code. If the address doesn't
+        belong to any Code zone, None is returned.
+        '''
+        pos = bisect(self.code_addrs, addr)
+        if pos == 0: return
+        code = self.code_objs[pos - 1]
+        offset = addr - code.x['instructions']['data_addr']
+        if offset < len(code.x['instructions']['data']):
+            return code, offset
 
     def get_entry_points(self, instr, offset=False):
         kind = { 'kFullJIT': 0, 'kFullAOT': 1 }[kKind[self.kind][0]]
