@@ -39,7 +39,7 @@ unob_string = lambda str: str.x['unob'] if 'unob' in str.x else str.x['value']
 # if utf-16 decoding fails
 # if read methods fail
 
-class Ref:
+class VMObject:
     def __init__(self, s, ref, cluster, x):
         self.ref = ref
         self.x = x
@@ -242,7 +242,7 @@ class Snapshot:
             self.read_fill_cluster(cluster)
 
         self.info('Reading roots...')
-        root = self.refs['root'] = Ref(self, 'root', {'handler': 'ObjectStore', 'cid': 'ObjectStore'}, {})
+        root = self.refs['root'] = VMObject(self, 'root', {'handler': 'ObjectStore', 'cid': 'ObjectStore'}, {})
         if self.vm:
             self.storeref(self.data, root.x, 'symbol_table', root)
             if self.includes_code:
@@ -397,14 +397,14 @@ class Snapshot:
         if base:
             base_objects = base.refs['next']-1
             self.base_clusters = list(self.base.clusters)
-            # refs is a dict from int to Ref,
+            # refs is a dict from int to VMObject,
             # except for 'next' key which just stores next ID to be assigned
             self.refs = { 'next': min(base_objects, exp_base_objects) + 1 }
             for i in range(1, self.refs['next']):
                 ref = self.refs[i] = base.refs[i]
                 ref.s = self
         else:
-            init_base_objects(Ref, self, self.includes_code)
+            init_base_objects(VMObject, self, self.includes_code)
             base_objects = self.refs['next']-1
 
         # fill any missing refs
@@ -416,7 +416,7 @@ class Snapshot:
     def allocref(self, cluster, x):
         if 'refs' not in cluster:
             cluster['refs'] = []
-        ref = Ref(self, self.refs['next'], cluster, x)
+        ref = VMObject(self, self.refs['next'], cluster, x)
         self.refs[ref.ref] = ref
         self.refs['next'] += 1
         cluster['refs'].append(ref)
@@ -525,7 +525,7 @@ class Snapshot:
     # CID LINKING #
 
     def link_cids(self):
-        ''' This method builds a CID-to-Ref table, and then manually inserts references
+        ''' This method builds a CID-to-VMObject table, and then manually inserts references
             from things that reference a CID (Instance, Type and predefined Class) to their original Class. '''
         # Build class table, and link predefined Class objects
         self.classes = {}
