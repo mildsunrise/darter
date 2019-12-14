@@ -61,6 +61,12 @@ class Ref:
     def values(self):
         if self.ref == 4:
             return []
+        if self.is_cid('GrowableObjectArray'):
+            assert self.x['length'].is_cid('Mint') and self.x['data'].is_array()
+            length = self.x['length'].x['value']
+            values = self.x['data'].values()
+            assert length <= len(values)
+            return values[:length]
         if self.is_array():
             return list(self.x['value'])
         raise Exception("Not an array")
