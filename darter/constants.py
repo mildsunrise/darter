@@ -13,7 +13,7 @@ kSectionMarker = 0xABAB
 kMaxPreferredCodeAlignment = 32
 
 # as an exception, kClassId names are stripped of k- and -Cid (except items 2 and 3: kFreeListElement, kForwardingCorpse)
-with open(os.path.join(os.path.dirname(__file__), 'data', 'classIds.json')) as f:
+with open(os.path.join(os.path.dirname(__file__), 'data', 'class_ids.json')) as f:
     kClassId = json.load(f)
 kkClassId = { k: v for (v, k) in enumerate(kClassId) }
 assert len(kClassId) == len(kkClassId)
