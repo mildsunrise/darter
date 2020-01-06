@@ -62,6 +62,9 @@ kkPcDescriptorKindBits = { k[0]: v for (v, k) in enumerate(kPcDescriptorKindBits
 with open(os.path.join(os.path.dirname(__file__), 'data', 'stub_code_list.json')) as f:
     kStubCodeList = json.load(f)
 
+with open(os.path.join(os.path.dirname(__file__), 'data', 'runtime_offsets.json')) as f:
+    kRuntimeOffsets = json.load(f)
+
 # runtime/vm/dart_entry.h
 kCachedDescriptorCount = 32
 # runtime/vm/object.h
