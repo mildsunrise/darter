@@ -63,8 +63,8 @@ The parser is still at an early stage and will not work in every case.
 This parser was written based on dart-sdk at `1ef83b86ae`.
 The snapshot format is internal to the VM. It dumps some of the objects as they appear
 in memory; you need to know how the VM (arch, compile flags) was compiled in order
-to parse it. It can change frequently between versions, as there's not a standard spec
-(AFAIK) for the format.
+to parse it. It [can change frequently between versions](./info/versions.md), as
+there's not a standard spec (AFAIK) for the format.
 
 Any help or donations are welcome.
 
