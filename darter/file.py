@@ -77,7 +77,7 @@ def parse_appjit_snapshot(fname, base=None, **kwargs):
                         instructions=blobs[1], instructions_offset=offsets[1],
                         vm=True, **kwargs).parse()
     else:
-        log(3, 'No base snapshot, skipping base snasphot parsing...')
+        log(3, 'No base snapshot, skipping base snapshot parsing...')
         assert not lengths[1]
 
     log(3, '\n------- PARSING ISOLATE SNAPSHOT --------\n')

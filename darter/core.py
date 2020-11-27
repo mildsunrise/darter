@@ -251,7 +251,7 @@ class Snapshot:
         else:
             self.read_fill_cluster(root.cluster, [root])
 
-        self.info('Snasphot parsed.')
+        self.info('Snapshot parsed.')
         if self.data.tell() != self.length + 4:
             self.warning('Snapshot should end at 0x{:x} but we are at 0x{:x}'.format(self.length + 4, self.data.tell()))
 
