@@ -271,20 +271,20 @@ class Snapshot:
             message = '[{:08x}]: {}'.format(self.data_offset + offset, message)
         print(message)
     
-    def debug(self, message):
-        self.p(4, 'DEBUG: {}'.format(message))
+    def debug(self, message, *args, **kwargs):
+        self.p(4, 'DEBUG: {}'.format(message), *args, **kwargs)
 
-    def info(self, message):
-        self.p(3, 'INFO: {}'.format(message))
+    def info(self, message, *args, **kwargs):
+        self.p(3, 'INFO: {}'.format(message), *args, **kwargs)
     
-    def notice(self, message):
-        self.p(2, 'NOTICE: {}'.format(message))
+    def notice(self, message, *args, **kwargs):
+        self.p(2, 'NOTICE: {}'.format(message), *args, **kwargs)
 
-    def warning(self, message):
+    def warning(self, message, *args, **kwargs):
         if self.strict:
-            self.p(1, 'WARN: An inconsistency was found; failing. Pass strict=False to treat inconsistencies as warnings and continue parsing.')
+            self.p(1, 'WARN: An inconsistency was found; failing. Pass strict=False to treat inconsistencies as warnings and continue parsing.', *args, **kwargs)
             raise ParseError(self.data_offset + self.data.tell(), message)
-        self.p(1, 'WARN: {}'.format(message))
+        self.p(1, 'WARN: {}'.format(message), *args, **kwargs)
 
 
     # HEADER PARSING & INITIALIZATION #
