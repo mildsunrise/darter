@@ -1,3 +1,9 @@
+⚠️ **Warning:** This project is outdated. The format of Dart snapshots changes CONSTANTLY, and any Dart RE tools like this one NEED constant maintenance or they stop working with newer versions of Dart / Flutter. Contributions are welcome, but I currently do not have the time to invest in monitoring changes to the VM and keeping this updated.
+
+So, if your snapshot was produced by a reasonably modern version, it probably won't parse [correctly]. Still, if you want to try, you'll probably need at least [the fix in #3](https://github.com/mildsunrise/darter/issues/8#issuecomment-929099367).
+
+---
+
 # darter: Dart snapshot parser
 
 `darter` is a Python module that can fully parse the data inside a Dart snapshot
