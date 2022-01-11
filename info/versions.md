@@ -16,16 +16,43 @@ Quick way to generate it:
 
     echo '{{SNAPSHOT_HASH}}' > /tmp/mv-template && python2 tools/make_version.py --input /tmp/mv-template --output /tmp/v-result
 
+## How is the snapshot hash calculated
+
+It's calculated by the [`tools/make_version.py`](https://github.com/dart-lang/sdk/blob/34224674260486616e008a3dabd5f38ce4520cef/tools/make_version.py) script.
+
+The script looks at a list of files (the `VM_SNAPSHOT_FILES` variable) located in
+`runtime/vm` containing headers and source files whose changes could *potentially* introduce a
+breaking change in the format. These files are read(*) and concatenated, in order, and
+the MD5 of the result is the snapshot hash.
+
+The snapshot hash was introduced in [`3dfb90f5`](https://github.com/dart-lang/sdk/commit/3dfb90f59f7a6846b00259770bc08104f7bcc594) (1.7.0-dev.2.0, late 2014). Before that, the
+*version string* (see same script) was used. Darter will likely never work with such old
+snapshots anyway, so we can forget about it.
+
+In [`f58c5bb7`](https://github.com/dart-lang/sdk/commit/f58c5bb78a117d3090cebb83eb00d1b3372cffb1) (2.0.0-dev.8.0, late 2017),
+the calculation was changed to include `clustered_snapshot.{h,cc}` and `image_snapshot.{h,cc}`.
+ - `clustered_snapshot.{h,cc}` was added in [`524fbc1e`](https://github.com/dart-lang/sdk/commit/524fbc1e0f9d61ff5da69bbed2b35745528de945) (1.18.0-dev.4.0, mid 2016).
+ - `image_snapshot.{h,cc}` was added in [`8ed836f`](https://github.com/dart-lang/sdk/commit/8ed836fd6d988f7a3466b2707cabd739f2d10aa3) (2.0.0-dev.6.0, late 2017, some days before `f58c5bb7`).
+
+(*) read using python's default text mode, then encoded as UTF-8 before concatenating.
+After [`0ce83987`](https://github.com/dart-lang/sdk/commit/0ce83987d65d008a5705edb248bddb9c845643ec),
+(2.9.0-21.0.dev, mid 2020) they are read in binary mode and should be exactly equivalent to `cat [files] | md5sum`.
+
+To date, there have been no more changes.
+
+FIXME: ABI version, could it be useful? cc455ecc1d5a4f45297831472086d3bbe4b78d9b
+FIXME: look at pkg/kernel/binary.md
+
 
 # Flutter versions
 
 Info about the various release channels: <https://github.com/flutter/flutter/wiki/Flutter-build-release-channels>
 
-Listed in <https://flutter.dev/docs/development/tools/sdk/releases>, which loads:
+Listed in <https://docs.flutter.dev/development/tools/sdk/releases>, which loads:
 
-<https://storage.googleapis.com/flutter_infra/releases/releases_windows.json>  
-<https://storage.googleapis.com/flutter_infra/releases/releases_macos.json>  
-<https://storage.googleapis.com/flutter_infra/releases/releases_linux.json>
+<https://storage.googleapis.com/flutter_infra_release/releases/releases_windows.json>  
+<https://storage.googleapis.com/flutter_infra_release/releases/releases_macos.json>  
+<https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json>
 
 Containing releases by channel, with: release date, commit, tag (and also filename and sha256 hash?)
 
@@ -191,4 +218,5 @@ Containing releases by channel, with: release date, commit, tag (and also filena
 | 2018-04-02 | beta | v0.2.3 | 5a58b36e36b8d7aace89d3950e6deb307956a6a0 | e61bb9ac3a3fd789754e2e54220bcfc27076a857 | 290c576264faa096a0b3206c71b2435309d9f904 | 0d015018f02a6de0c92ac1ac59191b55 |
 | 2018-03-15 | beta | v0.1.5 | 3ea4d06340a97a1e9d7cae97567c64e0569dcaa2 | ead227f118077d1f2b57842a32abaf105b573b8a | 0b4f01f7593c8c42a77dc27d1fc234c95eacc88e | 9bc066b6e8ef5a9f7224c2926c6ad2f4 |
 
-`dev` channel not included for brevity. See `list_versions.ipynb` for generation of this table.
+`dev` channel not included for brevity (also, it was [announced to shut down in late 2021](https://medium.com/flutter/whats-new-in-flutter-2-8-d085b763d181#34c4)).
+See `list_versions.ipynb` for generation of this table.
